@@ -31,4 +31,5 @@ jobs:
         echo "TestVar=${{steps.test.outputs.var}}"
         echo "Version=${{steps.get_vers.outputs.current_ver}}"
         echo "Release=${{steps.get_vers.outputs.current_tag}}"
+        echo "Ref=${{github.ref}}"
         

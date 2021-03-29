@@ -15,14 +15,20 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Test action
+      id: test
+      run: |
+        echo "::set-output name=var::test_val"
+
     - name: Get release version
       id: get_vers
       run: |
-        echo "##[set-output name=current_ver;]$(head -1 Version.txt)"
+        echo "::set-output name=current_ver::$(cat Version.txt)"
         echo "::set-output name=current_tag::$(git describe --tags --exact-match)"
         
     - name: Display result
       run: |
+        echo "TestVar=${{steps.test.output.var}}"
         echo "Version=${{steps.get_vers.output.current_ver}}"
         echo "Release=${{steps.get_vers.output.current_tag}}"
         

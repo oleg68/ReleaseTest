@@ -2,7 +2,6 @@ name: Build
 
 on:
   push:
-    branches: ["os-fork-6.2*"]
 
 jobs:
   build-linux:
@@ -15,56 +14,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Get foundatondb version
-      shell: bash
-      working-directory: ${{github.workspace}}/bld
-      run: echo FDB_VERSION=`${{github.workspace}}/build/get_version.sh ${{github.workspace}}/versions.target` >>$GITHUB_ENV
-      
-    - name: Get foundationdb version suffix
-      shell: bash
-      working-directory: ${{github.workspace}}/bld
-      run: grep FDB_VERSION_SUFFIX CMakeCache.txt | sed s/:[^=]*// >>$GITHUB_ENV
-
-    - name: Get CPack variables
-      working-directory: ${{github.workspace}}/bld
-      shell: bash
+    - name: Get release version
+      id: get_vers
       run: |
-        grep -E 'CPACK_RPM_CLIENTS-EL7_FILE_NAME|CPACK_RPM_SERVER-EL7_FILE_NAME' CPackConfig.cmake | sed 's/set.//;s/")$//;s/^ *//;s/ "/=/' >>$GITHUB_ENV
+        echo "::set-output name=current_ver::$(head -1 Version.txt)"
+        echo "::set-output name=current_tag::$(git describe --tags --exact_match || true)"
         
-    - name: Test cpack variables
-      shell: bash
-      run:
-        echo "FDB_VERSION=${{ env.FDB_VERSION }}"
-        echo "FDB_VERSION_SUFFIX=${{ env.FDB_VERSION_SUFFIX }}"
-        echo "client ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}"
-        echo "server ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}"
-
-    - name: Upload the Client rpm
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}
-        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}
-
-    - name: Upload the Client rpm checksum
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}.sha256
-        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}.sha256
-
-    - name: Upload the Server rpm
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}
-        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}
-
-    - name: Upload the Server rpm checksum
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}.sha256
-        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}.sha256
-
-    - name: Upload the java bindings
-      uses: actions/upload-artifact@v2
-      with:
-        name: "fdb-java-${{ env.FDB_VERSION }}${{ env.FDB_VERSION_SUFFIX }}.jar"
-        path: "${{github.workspace}}/bld/packages/fdb-java-${{ env.FDB_VERSION }}${{ env.FDB_VERSION_SUFFIX }}.jar"
+    - name: Display result
+      run: |
+        echo "Version=${{steps.get_vers.output.current_ver}}"
+        echo "Release=${{steps.get_vers.output.current_tag}}"
+        

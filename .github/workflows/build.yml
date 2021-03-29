@@ -28,7 +28,7 @@ jobs:
         
     - name: Display result
       run: |
-        echo "TestVar=${{steps.test.output.var}}"
-        echo "Version=${{steps.get_vers.output.current_ver}}"
-        echo "Release=${{steps.get_vers.output.current_tag}}"
+        echo "TestVar=${{steps.test.outputs.var}}"
+        echo "Version=${{steps.get_vers.outputs.current_ver}}"
+        echo "Release=${{steps.get_vers.outputs.current_tag}}"
         

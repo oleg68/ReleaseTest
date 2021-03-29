@@ -19,7 +19,7 @@ jobs:
       id: get_vers
       run: |
         echo "::set-output name=current_ver::$(head -1 Version.txt)"
-        echo "::set-output name=current_tag::$(git describe --tags --exact_match || true)"
+        echo "::set-output name=current_tag::$(git describe --tags --exact-match)"
         
     - name: Display result
       run: |

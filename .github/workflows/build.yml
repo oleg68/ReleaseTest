@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: ["os-fork-6.2*"]
+
+jobs:
+  build-linux:
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Get foundatondb version
+      shell: bash
+      working-directory: ${{github.workspace}}/bld
+      run: echo FDB_VERSION=`${{github.workspace}}/build/get_version.sh ${{github.workspace}}/versions.target` >>$GITHUB_ENV
+      
+    - name: Get foundationdb version suffix
+      shell: bash
+      working-directory: ${{github.workspace}}/bld
+      run: grep FDB_VERSION_SUFFIX CMakeCache.txt | sed s/:[^=]*// >>$GITHUB_ENV
+
+    - name: Get CPack variables
+      working-directory: ${{github.workspace}}/bld
+      shell: bash
+      run: |
+        grep -E 'CPACK_RPM_CLIENTS-EL7_FILE_NAME|CPACK_RPM_SERVER-EL7_FILE_NAME' CPackConfig.cmake | sed 's/set.//;s/")$//;s/^ *//;s/ "/=/' >>$GITHUB_ENV
+        
+    - name: Test cpack variables
+      shell: bash
+      run:
+        echo "FDB_VERSION=${{ env.FDB_VERSION }}"
+        echo "FDB_VERSION_SUFFIX=${{ env.FDB_VERSION_SUFFIX }}"
+        echo "client ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}"
+        echo "server ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}"
+
+    - name: Upload the Client rpm
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}
+        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}
+
+    - name: Upload the Client rpm checksum
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}.sha256
+        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_CLIENTS-EL7_FILE_NAME }}.sha256
+
+    - name: Upload the Server rpm
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}
+        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}
+
+    - name: Upload the Server rpm checksum
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}.sha256
+        path: ${{github.workspace}}/bld/packages/${{ env.CPACK_RPM_SERVER-EL7_FILE_NAME }}.sha256
+
+    - name: Upload the java bindings
+      uses: actions/upload-artifact@v2
+      with:
+        name: "fdb-java-${{ env.FDB_VERSION }}${{ env.FDB_VERSION_SUFFIX }}.jar"
+        path: "${{github.workspace}}/bld/packages/fdb-java-${{ env.FDB_VERSION }}${{ env.FDB_VERSION_SUFFIX }}.jar"

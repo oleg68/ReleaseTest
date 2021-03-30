@@ -35,7 +35,7 @@ jobs:
         echo "::set-output name=release_ver::RELEASE_VERSION"
 
     - name: Display versions
-      debug: |
+      run: |
         echo "project_ver=${{steps.vers.outputs.project_ver}}"
         echo "release_flag=${{steps.vers.outputs.release_flag}}"
         echo "ver_suffix=${{steps.vers.outputs.ver_suffix}}"

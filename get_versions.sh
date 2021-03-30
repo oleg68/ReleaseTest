@@ -1,6 +1,6 @@
 PROJECT_VERSION=`head -1  Version.txt`
 RELEASE_VERSION=`git describe --tags --exact-match`
-if $?; then
+if [ $? == 0 ]; then
   # rem Release
   RELEASE_FLAG=ON
   VERSION_SUFFIX="ow.r"

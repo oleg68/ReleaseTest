@@ -38,7 +38,7 @@ jobs:
         echo "::set-output name=project_ver::$PROJECT_VERSION"
         echo "::set-output name=release_flag::$RELEASE_FLAG"
         echo "::set-output name=ver_suffix::$VERSION_SUFFIX"        
-        echo "::set-output name=release_ver::RELEASE_VERSION"
+        echo "::set-output name=release_ver::$RELEASE_VERSION"
 
     - name: Display versions
       run: |
@@ -75,7 +75,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: "${{ needs.build_linux.outputs.release_ver}}"
-        release_name:  "Release Test v${{ needs.build_linux.outputs.release_ver}}"
+        release_name:  "Release Test ow ${{ needs.build_linux.outputs.release_ver}}"
         draft: true
         prerelease: false
 

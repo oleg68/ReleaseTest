@@ -14,22 +14,39 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v2
+      
+    - name: Calculate versions
+      id: vers
+      run: |
+        PROJECT_VERSION=$(head -1  Version.txt)
+        RELEASE_VERSION=`git describe --tags --exact-match` && true
+        if [[ -n "$RELEASE_VERSION" ]]; then
+          # rem Release
+          RELEASE_FLAG=ON
+          VERSION_SUFFIX="ow.r"
+        else
+          # Intermediate build
+          RELEASE_FLAG=OFF
+          VERSION_SUFFIX="ow.${{github.run_number}}"
+        fi
+        echo "::set-output name=project_ver::$PROJECT_VERSION"
+        echo "::set-output name=release_flag::$RELEASE_FLAG"
+        echo "::set-output name=ver_suffix::$VERSION_SUFFIX"        
+        echo "::set-output name=release_ver::RELEASE_VERSION"
 
-    - name: Test action
-      id: test
-      run: |
-        echo "::set-output name=var::test_val"
-
-    - name: Get release version
-      id: get_vers
-      run: |
-        echo "::set-output name=current_ver::$(cat Version.txt)"
-        echo "::set-output name=current_tag::$(git describe --tags --exact-match)"
+    - name: Display versions
+      debug: |
+        echo "project_ver=${{steps.vers.outputs.project_ver}}"
+        echo "release_flag=${{steps.vers.outputs.release_flag}}"
+        echo "ver_suffix=${{steps.vers.outputs.ver_suffix}}"
+        echo "release_ver=${{steps.vers.outputs.release_ver}}"
         
-    - name: Display result
+    - name: Build
       run: |
-        echo "TestVar=${{steps.test.outputs.var}}"
-        echo "Version=${{steps.get_vers.outputs.current_ver}}"
-        echo "Release=${{steps.get_vers.outputs.current_tag}}"
-        echo "Ref=${{github.ref}}"
+        cp File1.txt result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt
         
+    - name: Upload the artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"
+        path: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"

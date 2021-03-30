@@ -75,7 +75,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: "${{ needs.build_linux.outputs.release_ver}}"
-        release_name:  "Release Test ow ${{ needs.build_linux.outputs.release_ver}}"
+        release_name:  "Release Test ow v${{ needs.build_linux.outputs.release_ver}}"
         draft: true
         prerelease: false
 

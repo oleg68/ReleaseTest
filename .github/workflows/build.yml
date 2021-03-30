@@ -10,6 +10,12 @@ jobs:
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
+    output:
+      project_ver: ${{steps.vers.outputs.project_ver}}
+      release_flag: ${{steps.vers.outputs.release_flag}}
+      ver_suffix: ${{steps.vers.outputs.ver_suffix}}
+      release_ver: ${{steps.vers.outputs.release_ver}}
+      
     steps:
 
     - name: Checkout
@@ -50,3 +56,40 @@ jobs:
       with:
         name: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"
         path: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build_linux]
+    runs-on: ubuntu-latest
+    steps:
+      
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs..ver_suffix}}.txt"
+
+    - name: Create Draft Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "${{ needs.build_linux.outputs.release_ver}}"
+        release_name:  "Release Test v${{ needs.build_linux.outputs.release_ver}}"
+        draft: true
+        prerelease: false
+
+    - uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs..ver_suffix}}.txt"
+        asset_name: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs..ver_suffix}}.txt"
+        asset_content_type: text/plain
+
+    - uses: eregon/publish-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        release_id: ${{ steps.create_release.outputs.id }}    

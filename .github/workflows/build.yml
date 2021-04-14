@@ -4,69 +4,78 @@ on:
   push:
 
 jobs:
+  calc_ver:
+    # calculate versions from git tags
+    runs-on: ubuntu-latest
+    outputs:
+      project_ver: ${{steps.vers.outputs.project_ver}}
+      release_flag: ${{steps.vers.outputs.release_flag}}
+      build_ver: ${{steps.vers.outputs.build_ver}}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Calculate versions
+      id: vers
+      shell: bash
+      run: |
+        GIT_VERSION=`git describe --tags`
+        PROJECT_VERSION=`echo $GIT_VERSION | cut -d- -f1`
+        BUILD_VERSION=`echo $GIT_VERSION | cut -d- -f2-3 | sed 's/-/./g'`
+        RELEASE_FLAG=OFF
+        if git describe --tags --exact-match && [[ ! "$BUILD_VERSION" < "1" ]]; then
+          # rem Release
+          RELEASE_FLAG=ON
+        else
+          # Intermediate build
+          RELEASE_FLAG=OFF
+          [[ -n $BUILD_VERSION ]] BUILD_VERSION=${BUILD_VERSION}.
+          BUILD_VERSION="${BUILD_VERSION}${{github.run_number}}"
+        fi
+        BUILD_VERSION="os.$BUILD_VERSION"
+        echo "::set-output name=project_ver::$PROJECT_VERSION"
+        echo "::set-output name=release_flag::$RELEASE_FLAG"
+        echo "::set-output name=build_ver::$BUILD_VERSION"
+
+    - name: Display versions
+      run: |
+        echo "project_ver=${{steps.vers.outputs.project_ver}}"
+        echo "release_flag=${{steps.vers.outputs.release_flag}}"
+        echo "build_ver=${{steps.vers.outputs.build_ver}}"
+  
   build_linux:
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
-    outputs:
-      project_ver: ${{steps.vers.outputs.project_ver}}
-      release_flag: ${{steps.vers.outputs.release_flag}}
-      ver_suffix: ${{steps.vers.outputs.ver_suffix}}
-      release_ver: ${{steps.vers.outputs.release_ver}}
-      
+    needs: [calc_ver]
     steps:
 
     - name: Checkout
       uses: actions/checkout@v2
       
-    - name: Calculate versions
-      id: vers
-      run: |
-        PROJECT_VERSION=$(head -1  Version.txt)
-        RELEASE_VERSION=`git describe --tags --exact-match` && true
-        if [[ -n "$RELEASE_VERSION" ]]; then
-          # rem Release
-          RELEASE_FLAG=ON
-          VERSION_SUFFIX="ow.r"
-        else
-          # Intermediate build
-          RELEASE_FLAG=OFF
-          VERSION_SUFFIX="ow.${{github.run_number}}"
-        fi
-        echo "::set-output name=project_ver::$PROJECT_VERSION"
-        echo "::set-output name=release_flag::$RELEASE_FLAG"
-        echo "::set-output name=ver_suffix::$VERSION_SUFFIX"        
-        echo "::set-output name=release_ver::$RELEASE_VERSION"
-
-    - name: Display versions
-      run: |
-        echo "project_ver=${{steps.vers.outputs.project_ver}}"
-        echo "release_flag=${{steps.vers.outputs.release_flag}}"
-        echo "ver_suffix=${{steps.vers.outputs.ver_suffix}}"
-        echo "release_ver=${{steps.vers.outputs.release_ver}}"
-        
     - name: Build
       run: |
-        cp File1.txt result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt
+        cp File1.txt result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
         
     - name: Upload the artifact
       uses: actions/upload-artifact@v2
       with:
-        name: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"
-        path: "result-${{steps.vers.outputs.project_ver}}-${{steps.vers.outputs.ver_suffix}}.txt"
+        name: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
+        path: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [build_linux]
+    needs: [calc_ver, build_linux]
+    if: ${{ needs.calc_ver.outputs.project_ver == 'ON' }} 
     runs-on: ubuntu-latest
     steps:
       
     - name: Download artifact
       uses: actions/download-artifact@v2
       with:
-        name: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs.ver_suffix}}.txt"
+        name: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
 
     - name: Create Draft Release
       id: create_release
@@ -74,8 +83,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: "${{ needs.build_linux.outputs.release_ver}}"
-        release_name:  "Release Test ow v${{ needs.build_linux.outputs.release_ver}}"
+        tag_name: ${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}
+        release_name:  "Release Test ow v${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}"
         draft: true
         prerelease: false
 
@@ -84,8 +93,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs.ver_suffix}}.txt"
-        asset_name: "result-${{ needs.build_linux.outputs.project_ver }}-${{needs.build_linux.outputs.ver_suffix}}.txt"
+        asset_path: "result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt"
+        asset_name: "result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt"
         asset_content_type: text/plain
 
     - uses: eregon/publish-release@v1

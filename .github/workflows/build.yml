@@ -11,6 +11,7 @@ jobs:
       project_ver: ${{steps.vers.outputs.project_ver}}
       release_flag: ${{steps.vers.outputs.release_flag}}
       build_ver: ${{steps.vers.outputs.build_ver}}
+      full_ver: ${{steps.vers.outputs.full_ver}}
 
     steps:
     - name: Checkout
@@ -40,12 +41,14 @@ jobs:
         echo "::set-output name=project_ver::$PROJECT_VERSION"
         echo "::set-output name=release_flag::$RELEASE_FLAG"
         echo "::set-output name=build_ver::$BUILD_VERSION"
+        echo "::set-output name=full_ver::${PROJECT_VERSION}-${BUILD_VERSION}"
 
     - name: Display versions
       run: |
         echo "project_ver=${{steps.vers.outputs.project_ver}}"
         echo "release_flag=${{steps.vers.outputs.release_flag}}"
         echo "build_ver=${{steps.vers.outputs.build_ver}}"
+        echo "full_ver=${{steps.vers.outputs.full_ver}}"
   
   build_linux:
     # The CMake configure and build commands are platform agnostic and should work equally
@@ -61,24 +64,24 @@ jobs:
       
     - name: Build
       run: |
-        cp File1.txt result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
+        cp File1.txt result-${{needs.calc_ver.outputs.full_ver}}.txt
         
     - name: Upload the artifact
       uses: actions/upload-artifact@v2
       with:
-        name: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
-        path: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
+        name: result-${{needs.calc_ver.outputs.full_ver}}.txt
+        path: result-${{needs.calc_ver.outputs.full_ver}}.txt
 
   release:
     needs: [calc_ver, build_linux]
-    if: ${{ needs.calc_ver.outputs.project_ver == 'ON' }} 
+    if: ${{ needs.calc_ver.outputs.release_flag == 'ON' }} 
     runs-on: ubuntu-latest
     steps:
       
     - name: Download artifact
       uses: actions/download-artifact@v2
       with:
-        name: result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt
+        name: result-${{needs.calc_ver.outputs.full_ver}}.txt
 
     - name: Create Draft Release
       id: create_release
@@ -86,8 +89,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}
-        release_name:  "Release Test ow v${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}"
+        tag_name: ${{ needs.calc_ver.outputs.full_ver }}
+        release_name:  "Release Test ow v${{needs.calc_ver.outputs.full_ver}}"
         draft: true
         prerelease: false
 
@@ -96,8 +99,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: "result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt"
-        asset_name: "result-${{needs.calc_ver.outputs.project_ver}}-${{needs.calc_ver.outputs.build_ver}}.txt"
+        asset_path: "result-${{needs.calc_ver.outputs.full_ver}}.txt"
+        asset_name: "result-${{needs.calc_ver.outputs.full_ver}}.txt"
         asset_content_type: text/plain
 
     - uses: eregon/publish-release@v1

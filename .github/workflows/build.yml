@@ -34,8 +34,6 @@ jobs:
         else
           # Intermediate build
           RELEASE_FLAG=OFF
-          [[ -n $BUILD_VERSION ]] && BUILD_VERSION="${BUILD_VERSION}."
-          BUILD_VERSION="${BUILD_VERSION}${{github.run_number}}"
         fi
         BUILD_VERSION="os.$BUILD_VERSION"
         echo "::set-output name=project_ver::$PROJECT_VERSION"

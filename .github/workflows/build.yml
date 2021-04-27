@@ -9,44 +9,54 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       project_ver: ${{steps.vers.outputs.project_ver}}
-      release_flag: ${{steps.vers.outputs.release_flag}}
       build_ver: ${{steps.vers.outputs.build_ver}}
       full_ver: ${{steps.vers.outputs.full_ver}}
+      release_flag: ${{steps.vers.outputs.release_flag}}
+      release_id: ${{ steps.create_release.outputs.id }}
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
 
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-         fetch-depth: 0
 
     - name: Calculate versions
       id: vers
       shell: bash
       run: |
-        pwd
+        git fetch --prune --unshallow --tags
         GIT_VERSION=`git describe --tags`
         PROJECT_VERSION=`echo $GIT_VERSION | cut -d- -f1`
-        BUILD_VERSION=`echo $GIT_VERSION | cut -d- -f2-3 | sed 's/-/./g'`
-        RELEASE_FLAG=OFF
-        if git describe --tags --exact-match && [[ ! "$BUILD_VERSION" < "1" ]]; then
-          # rem Release
-          RELEASE_FLAG=ON
-        else
-          # Intermediate build
+        BUILD_VERSION=`echo $GIT_VERSION | cut -d- -f2-3 --output-delimiter=.`
+        GIT_CHANGE_NUM=`echo $GIT_VERSION | cut -d- -f3`
+        if [[ -n "$GIT_CHANGE_NUM" ]] || [[ "$BUILD_VERSION" < "1" ]]; then
           RELEASE_FLAG=OFF
+        else
+          RELEASE_FLAG=ON
         fi
-        BUILD_VERSION="os.$BUILD_VERSION"
+
         echo "::set-output name=project_ver::$PROJECT_VERSION"
-        echo "::set-output name=release_flag::$RELEASE_FLAG"
         echo "::set-output name=build_ver::$BUILD_VERSION"
-        echo "::set-output name=full_ver::${PROJECT_VERSION}-${BUILD_VERSION}"
+        echo "::set-output name=full_ver::$PROJECT_VERSION-$BUILD_VERSION"
+        echo "::set-output name=release_flag::$RELEASE_FLAG"
 
     - name: Display versions
       run: |
         echo "project_ver=${{steps.vers.outputs.project_ver}}"
-        echo "release_flag=${{steps.vers.outputs.release_flag}}"
         echo "build_ver=${{steps.vers.outputs.build_ver}}"
         echo "full_ver=${{steps.vers.outputs.full_ver}}"
+        echo "release_flag=${{steps.vers.outputs.release_flag}}"
+
+    - name: Create Draft Release
+      if: ${{ steps.vers.outputs.release_flag == 'ON' }}
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "${{ steps.vers.outputs.full_ver }}"
+        release_name:  "v${{ steps.vers.outputs.full_ver }}"
+        draft: true
+        prerelease: false
   
   build_linux:
     # The CMake configure and build commands are platform agnostic and should work equally
@@ -64,45 +74,25 @@ jobs:
       run: |
         cp File1.txt result-${{needs.calc_ver.outputs.full_ver}}.txt
         
-    - name: Upload the artifact
-      uses: actions/upload-artifact@v2
+    - name: Upload artifact and release
+      uses: flying-ufo/action-upload-artifacts-and-release@main
       with:
-        name: result-${{needs.calc_ver.outputs.full_ver}}.txt
-        path: result-${{needs.calc_ver.outputs.full_ver}}.txt
-
+        path: |
+          x.txt
+          *ersio*
+        upload-release-files: ${{ needs.calc_ver.outputs.release_flag }}
+        release-upload-url: ${{ needs.calc_ver.outputs.release_upload_url }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
   release:
     needs: [calc_ver, build_linux]
-    if: ${{ needs.calc_ver.outputs.release_flag == 'ON' }} 
+    if: ${{ needs.calc_ver.outputs.release_flag == 'ON' }}
     runs-on: ubuntu-latest
     steps:
       
-    - name: Download artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: result-${{needs.calc_ver.outputs.full_ver}}.txt
-
-    - name: Create Draft Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ needs.calc_ver.outputs.full_ver }}
-        release_name:  "Release Test ow v${{needs.calc_ver.outputs.full_ver}}"
-        draft: true
-        prerelease: false
-
-    - uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: "result-${{needs.calc_ver.outputs.full_ver}}.txt"
-        asset_name: "result-${{needs.calc_ver.outputs.full_ver}}.txt"
-        asset_content_type: text/plain
-
     - uses: eregon/publish-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        release_id: ${{ steps.create_release.outputs.id }}    
+        release_id: ${{ needs.calc_ver.outputs.release_id }}

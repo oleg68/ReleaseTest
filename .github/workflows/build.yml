@@ -82,6 +82,7 @@ jobs:
           *ersio*
         upload-release-files: ${{ needs.calc_ver.outputs.release_flag }}
         release-upload-url: ${{ needs.calc_ver.outputs.release_upload_url }}
+        if-no-files-found: error
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

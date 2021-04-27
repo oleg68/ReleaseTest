@@ -78,7 +78,7 @@ jobs:
       uses: flying-ufo/action-upload-artifacts-and-release@main
       with:
         path: |
-          x.txt
+          File1.txt
           *ersio*
         upload-release-files: ${{ needs.calc_ver.outputs.release_flag }}
         release-upload-url: ${{ needs.calc_ver.outputs.release_upload_url }}
